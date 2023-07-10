@@ -18,7 +18,8 @@ def run(parser: Parser, writer: Writer):
         show_percent=True,
         show_eta=True,
         show_pos=True,
-        color=True
+        color=True,
+        item_show_func=lambda a: "" if not a else "parsing" 
     ) as bar:
         for item in bar:
             if item:
