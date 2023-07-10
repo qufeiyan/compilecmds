@@ -7,7 +7,7 @@ import pickle
 
 # import copy
 from os import popen
-from .reader import Reader
+from src.reader import Reader
 
 
 class ParseException(Exception):
@@ -51,7 +51,7 @@ class Parser:
 
             lines = line.split()
 
-            res_list = [s for s in lines if "`/" in s]
+            res_list = [s for s in lines if "'/" in s or '"/' in s]
             if len(res_list) == 1:
                 res = res_list.pop()[1:-1]
             else:
@@ -125,9 +125,9 @@ class Parser:
     def trim(self, src: str) -> str:
         """去掉换行符与当前目录符 "./" """
         if "\n" in src:
-            src = src.removesuffix("\n")
+            src = src[:-1]
         if "./" in src:
-            src = src.removeprefix("./")
+            src = src[2:]
 
         return src
 

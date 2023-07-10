@@ -1,9 +1,9 @@
 import click
 import sys
 from os import path
-from .reader import *
-from .parser import Parser
-from .writer import Writer
+from src.reader import *
+from src.parser import Parser
+from src.writer import Writer
 
 
 def run(parser: Parser, writer: Writer):
