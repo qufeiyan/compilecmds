@@ -43,7 +43,17 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     required=False,
     default="-",
 )
-def cli(infile):
+
+@click.option(
+    "-d",
+    "--dir",
+    "build_dir",
+    type=click.STRING,
+    help="Specifies the build path for current project." + "(Default: current working direcoty)",
+    required=False,
+    default="",
+)
+def cli(infile, build_dir):
     """generate a compilation database for make-based build systems.
 
     \b
@@ -54,9 +64,9 @@ def cli(infile):
     """
     # click.echo(infile)
     if infile == "-":
-        run(parser=Parser(reader=StdinReader()), writer=Writer())
+        run(parser=Parser(reader=StdinReader(), build_dir=build_dir), writer=Writer())
     elif path.isfile(infile):
-        run(parser=Parser(reader=FileReader(infile)), writer=Writer())
+        run(parser=Parser(reader=FileReader(infile), build_dir=build_dir), writer=Writer())
     else:
         click.echo(f"Unexpected file name: {click.format_filename(infile)}")
 

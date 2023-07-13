@@ -4,6 +4,8 @@
 3. 导入Reader接口, Parser 只依赖抽象Reader 
 """
 import pickle
+from typing import Optional
+from os import path
 
 # import copy
 from os import popen
@@ -26,10 +28,21 @@ class Parser:
     从reader读取数据, 并将之解析为字典类型的数据
     """
 
-    def __init__(self, reader: Reader):
+    def __init__(self, reader: Reader, build_dir: Optional[str]=None):
+        '''Notes that build_dir must be absolute path.
+        '''
         self.reader = reader
         self._format = {"directory": "", "arguments": [], "file": ""}
-        self._dir = None
+        self._build_dir = build_dir
+        if self._build_dir is not None and path.isdir(self._build_dir):
+            self._dir: str = (
+                (self._build_dir[:-1] if "/" in self._build_dir else self._build_dir)
+            )
+            print(self._build_dir)
+        else:
+            self._dir = self._build_dir = path.abspath(".")
+        
+        print(f"self._dir: {self._dir}... {self._build_dir} ")
 
     def __iter__(self):
         return self
@@ -40,24 +53,16 @@ class Parser:
         else:
             raise StopIteration
 
-    def parsedirectory(self, line: str) -> str:
+    def parsedirectory(self, line: str) -> Optional[str]:
         """解析一行字符串，如果符合要求，即该串为make进入子目录构建的字符串，则返回构建目录"""
-        res: str = ""
-        parse: bool = False
+        res: Optional = None
         if len(line) != 0:
-            parse = "make[1]" in line and "Entering directory" in line
-            if not parse:
-                return
-
-            lines = line.split()
-
-            res_list = [s for s in lines if "'/" in s or '"/' in s]
-            if len(res_list) == 1:
-                res = res_list.pop()[1:-1]
-            else:
-                raise ParseException("only one directory string is expected.")
-
-            self._dir = res
+            if "make[1]" in line and "Entering directory" in line:
+                res = self._dir = self.__directory(line)
+            elif "make[1]" in line and "Leaving directory" in line:
+                res = self.__directory(line)
+                assert res == self._dir
+                self._dir = ""
         return res
 
     def parsecommand(self, line: str) -> list:
@@ -87,7 +92,7 @@ class Parser:
             return []
 
         with popen("which " + cc, "r") as pip:
-            cc_path = self.trim(pip.readline())
+            cc_path = self.__trim(pip.readline())
 
         if not cc_path:
             self._format.get("arguments").append(cc)
@@ -107,22 +112,22 @@ class Parser:
             item = pickle.loads(pickle.dumps(self._format, -1))
             item.get("arguments").append(files[i])
 
-            if self._dir is not None:
+            if self._dir != "":
                 directory = self._dir
             else:
                 with popen("pwd", "r") as pip:
-                    directory = self.trim(pip.readline())
+                    directory = self.__trim(pip.readline())
 
             item.update({"directory": directory})
             if "/" == files[i][0]:
-                item["file"] = self.trim(files[i])
+                item["file"] = self.__trim(files[i])
             else:
-                item["file"] = item.get("directory") + "/" + self.trim(files[i])
+                item["file"] = item.get("directory") + "/" + self.__trim(files[i])
             res.append(item)
-        self.reset()
+        self.__reset()
         return res
 
-    def trim(self, src: str) -> str:
+    def __trim(self, src: str) -> str:
         """去掉换行符与当前目录符 "./" """
         if "\n" in src:
             src = src[:-1]
@@ -144,25 +149,37 @@ class Parser:
         """是否有数据可解析"""
         return self.reader.readable()
 
-    def reset(self):
+    def __reset(self):
         """解析完一次命令后，重置解析字典为初始状态"""
         self._format.update({"directory": ""})
         self._format.get("arguments").clear()
         self._format.update({"file": ""})
 
+    def __directory(self, line: str) -> str:
+        '''从字符串中解析处目录项'''
+        lines = line.split()
 
+        res_list = [s for s in lines if "'/" in s or '"/' in s]
+        if len(res_list) == 1:
+            res = res_list.pop()[1:-1]
+        else:
+            raise ParseException("only one directory string is expected.")
+        return res
 
 
 
 if __name__ == "__main__":
     import orjson
-    from .reader import FileReader
+    from src.reader import FileReader
     _reader = FileReader("read.txt")
-    _parser = Parser(reader=_reader)
+    _parser = Parser(reader=_reader, build_dir="~/coder")
 
-    _res: list = _parser.parseline()
-    print(_res)
-    _res: list = _parser.parseline()
+    for pi in _parser:
+        if(len(pi) > 0):
+           print(pi)
+    # _res: list = _parser.parseline()
+    # print(_res)
+    # _res: list = _parser.parseline()
 
-    with open("cmd.json", "w", encoding="utf-8") as f:
-        f.write(orjson.dumps(_res, option=orjson.OPT_INDENT_2).decode("utf-8"))
+    # with open("cmd.json", "w", encoding="utf-8") as f:
+    #     f.write(orjson.dumps(_res, option=orjson.OPT_INDENT_2).decode("utf-8"))
