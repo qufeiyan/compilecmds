@@ -10,12 +10,5 @@ features:
 
 """
 
-__version__ = "0.1.0"
-
-from src import(
-    command,
-    parser,
-    reader,
-    writer
-)
-
+from src import command, parser, reader, writer
+from src.__meta__ import __version__

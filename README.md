@@ -27,16 +27,29 @@ reader --> parser --> writer
 
 ![](./img/uml.png)
 
-### 安装
+### 打包 & 安装
 
-本项目使用 `click` 框架生成命令行工具，暂时只提供开发版本，因此可以在下载仓库后使用以下方式安装在本地开发环境下。
+下载仓库后，在工作目录下，使用 
+```bash
+python3 setup.py sdist bdist_wheel
+```
+
+会在工作目录下生成 `dist` 目录，里面有可用的 `whl` 文件。使用 `pip3 install $(path_to_whl)` 即可安装。
+
+如果未生成 `whl` 文件，请先执行以下命令确认打包环境
+
+```bash
+python3 -m pip install wheel setuptools --upgrade
+```
+
+另外，本项目功能尚不完善，暂时只提供开发版本，因此也可以在下载仓库后使用以下方式安装在本地开发环境下。
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --editable .
 ```
-具体信息可参阅 [click](https://click.palletsprojects.com/en/8.1.x/setuptools/#setuptools-integration) 
+本项目基于 `click` 框架生成命令行工具，若要自定义命令选项，具体信息可参阅 [click](https://click.palletsprojects.com/en/8.1.x/setuptools/#setuptools-integration) 
 
 ### 使用
 

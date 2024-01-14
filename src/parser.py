@@ -28,20 +28,19 @@ class Parser:
     从reader读取数据, 并将之解析为字典类型的数据
     """
 
-    def __init__(self, reader: Reader, build_dir: Optional[str]=None):
-        '''Notes that build_dir must be absolute path.
-        '''
+    def __init__(self, reader: Reader, build_dir: Optional[str] = None):
+        """Notes that build_dir must be absolute path."""
         self.reader = reader
         self._format = {"directory": "", "arguments": [], "file": ""}
         self._build_dir = build_dir
         if self._build_dir is not None and path.isdir(self._build_dir):
             self._dir: str = (
-                (self._build_dir[:-1] if "/" in self._build_dir else self._build_dir)
+                self._build_dir[:-1] if "/" in self._build_dir else self._build_dir
             )
             print(self._build_dir)
         else:
             self._dir = self._build_dir = path.abspath(".")
-        
+
         print(f"self._dir: {self._dir}... {self._build_dir} ")
 
     def __iter__(self):
@@ -73,7 +72,17 @@ class Parser:
         if len(line) == 0:
             return res
 
-        lines = line.split()
+        raw_lines = line.split()
+        index: int = 0
+        target: list = ["-I", "-D"]
+        lines: list = []
+        while index < len(raw_lines):
+            if raw_lines[index] in target:
+                lines.append("".join((raw_lines[index], raw_lines[index + 1])))
+                index += 2
+            else:
+                lines.append(raw_lines[index])
+                index += 1
 
         # 搜索编译工具链及编译文件
         for s in lines:
@@ -156,7 +165,7 @@ class Parser:
         self._format.update({"file": ""})
 
     def __directory(self, line: str) -> str:
-        '''从字符串中解析处目录项'''
+        """从字符串中解析处目录项"""
         lines = line.split()
 
         res_list = [s for s in lines if "'/" in s or '"/' in s]
@@ -167,16 +176,16 @@ class Parser:
         return res
 
 
-
 if __name__ == "__main__":
     import orjson
     from src.reader import FileReader
+
     _reader = FileReader("read.txt")
     _parser = Parser(reader=_reader, build_dir="~/coder")
 
     for pi in _parser:
-        if(len(pi) > 0):
-           print(pi)
+        if len(pi) > 0:
+            print(pi)
     # _res: list = _parser.parseline()
     # print(_res)
     # _res: list = _parser.parseline()

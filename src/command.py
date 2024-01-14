@@ -1,10 +1,12 @@
+"""
+命令行入口
+"""
 import click
-import sys
 from os import path
 from src.reader import *
 from src.parser import Parser
 from src.writer import Writer
-
+from src.__meta__ import __version__
 
 def run(parser: Parser, writer: Writer):
     """解析流程"""
@@ -53,6 +55,8 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     required=False,
     default="",
 )
+
+@click.version_option(version=__version__)
 def cli(infile, build_dir):
     """generate a compilation database for make-based build systems.
 
@@ -68,7 +72,7 @@ def cli(infile, build_dir):
     elif path.isfile(infile):
         run(parser=Parser(reader=FileReader(infile), build_dir=build_dir), writer=Writer())
     else:
-        click.echo(f"Unexpected file name: {click.format_filename(infile)}")
+        click.echo(f"Unexpected file name: {click.format_filename(infile) or None}")
 
     # click.echo("end of here")
 
@@ -77,5 +81,6 @@ if __name__ == "__main__":
     # parserdemo = Parser(reader=FileReader("read.txt"))
     # writerdemo = Writer()
     # run(parser=parser, writer=writer)
+    print(f"welcome to ccjson {__version__}.")
     cli()
     # print(sys.path)
