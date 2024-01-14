@@ -1,12 +1,13 @@
 """
 命令行入口
 """
-import click
 from os import path
-from src.reader import *
+import click
+from src.reader import StdinReader, FileReader
 from src.parser import Parser
 from src.writer import Writer
 from src.__meta__ import __version__
+
 
 def run(parser: Parser, writer: Writer):
     """解析流程"""
@@ -21,7 +22,7 @@ def run(parser: Parser, writer: Writer):
         show_eta=True,
         show_pos=True,
         color=True,
-        item_show_func=lambda a: "" if not a else "parsing" 
+        item_show_func=lambda a: "" if not a else "parsing",
     ) as bar:
         for item in bar:
             if item:
@@ -45,19 +46,28 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     required=False,
     default="-",
 )
-
 @click.option(
     "-d",
     "--dir",
     "build_dir",
     type=click.STRING,
-    help="Specifies the build path for current project." + "(Default: current working direcoty)",
+    help="Specifies the build path for current project."
+    + "(Default: current working direcoty)",
     required=False,
     default="",
 )
-
+@click.option(
+    "-o",
+    "--output",
+    "output_dir",
+    type=click.STRING,
+    help="Specifies the directory for compile_commands.json."
+    + "(Default: current working direcoty)",
+    required=False,
+    default="",
+)
 @click.version_option(version=__version__)
-def cli(infile, build_dir):
+def cli(infile, build_dir, output_dir):
     """generate a compilation database for make-based build systems.
 
     \b
@@ -68,9 +78,15 @@ def cli(infile, build_dir):
     """
     # click.echo(infile)
     if infile == "-":
-        run(parser=Parser(reader=StdinReader(), build_dir=build_dir), writer=Writer())
+        run(
+            parser=Parser(reader=StdinReader(), build_dir=build_dir),
+            writer=Writer(output_dir),
+        )
     elif path.isfile(infile):
-        run(parser=Parser(reader=FileReader(infile), build_dir=build_dir), writer=Writer())
+        run(
+            parser=Parser(reader=FileReader(infile), build_dir=build_dir),
+            writer=Writer(output_dir),
+        )
     else:
         click.echo(f"Unexpected file name: {click.format_filename(infile) or None}")
 

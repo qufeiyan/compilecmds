@@ -33,15 +33,12 @@ class Parser:
         self.reader = reader
         self._format = {"directory": "", "arguments": [], "file": ""}
         self._build_dir = build_dir
-        if self._build_dir is not None and path.isdir(self._build_dir):
-            self._dir: str = (
-                self._build_dir[:-1] if "/" in self._build_dir else self._build_dir
-            )
-            print(self._build_dir)
+        if self._build_dir != "":  # and path.isdir(self._build_dir):
+            self._dir: str = self._build_dir
         else:
             self._dir = self._build_dir = path.abspath(".")
 
-        print(f"self._dir: {self._dir}... {self._build_dir} ")
+        print(f"self._dir: {self._dir} \nself._build_dir: {self._build_dir} ")
 
     def __iter__(self):
         return self
@@ -56,7 +53,7 @@ class Parser:
         """解析一行字符串，如果符合要求，即该串为make进入子目录构建的字符串，则返回构建目录"""
         res: Optional = None
         if len(line) != 0:
-            if "make[1]" in line and "Entering directory" in line:
+            if ("make[1]" in line and "Entering directory" in line) or ("+ cd" in line):
                 res = self._dir = self.__directory(line)
             elif "make[1]" in line and "Leaving directory" in line:
                 res = self.__directory(line)
@@ -73,28 +70,63 @@ class Parser:
             return res
 
         raw_lines = line.split()
+
+        # 搜索编译工具链及编译文件, 以及处理文件路径
         index: int = 0
         target: list = ["-I", "-D"]
         lines: list = []
         while index < len(raw_lines):
-            if raw_lines[index] in target:
-                lines.append("".join((raw_lines[index], raw_lines[index + 1])))
+            if (
+                raw_lines[index].endswith("gcc")
+                or raw_lines[index].endswith("g++")
+                or raw_lines[index].endswith("clang")
+                or raw_lines[index].endswith("clang++")
+            ):
+                cc = raw_lines[index]
+                index += 1
+            elif raw_lines[index] in target:
+                combine: str = (
+                    "".join((raw_lines[index], raw_lines[index + 1]))
+                    if raw_lines[index] == "-D"
+                    else "".join(
+                        (
+                            raw_lines[index],
+                            self.__normpath(
+                                self.__relpath(self.__abspath(raw_lines[index + 1]))
+                            ),
+                        )
+                    )
+                )
+                lines.append(combine)
                 index += 2
+            elif raw_lines[index].startswith("-I"):
+                inc_str: str = "".join(
+                    (
+                        "-I",
+                        self.__normpath(
+                            self.__relpath(self.__abspath(raw_lines[index][2:]))
+                        ),
+                    )
+                )
+                lines.append(inc_str)
+                index += 1
+            elif (
+                raw_lines[index].endswith(".o")
+                or raw_lines[index].endswith(".c")
+                or raw_lines[index].endswith(".cc")
+                or raw_lines[index].endswith(".cpp")
+                or raw_lines[index].endswith(".cxx")
+            ):
+                filestr: str = self.__normpath(
+                    self.__relpath(self.__abspath(raw_lines[index]))
+                )
+                lines.append(filestr)
+                if raw_lines[index].endswith(".o") is False:
+                    files.append(filestr)
+                index += 1
             else:
                 lines.append(raw_lines[index])
                 index += 1
-
-        # 搜索编译工具链及编译文件
-        for s in lines:
-            if (
-                s.endswith("gcc")
-                or s.endswith("g++")
-                or s.endswith("clang")
-                or s.endswith("clang++")
-            ):
-                cc = s
-            elif s.endswith(".c") or s.endswith(".cc") or s.endswith(".cpp"):
-                files.append(s)
 
         file_num = len(files)
         if cc == "" or file_num == 0:
@@ -113,6 +145,7 @@ class Parser:
                 not argument.endswith(".c")
                 and not argument.endswith(".cc")
                 and not argument.endswith(".cpp")
+                and not argument.endswith(".cxx")
             ):
                 self._format.get("arguments").append(argument)
 
@@ -121,8 +154,8 @@ class Parser:
             item = pickle.loads(pickle.dumps(self._format, -1))
             item.get("arguments").append(files[i])
 
-            if self._dir != "":
-                directory = self._dir
+            if self._build_dir != "":
+                directory = self._build_dir
             else:
                 with popen("pwd", "r") as pip:
                     directory = self.__trim(pip.readline())
@@ -131,7 +164,8 @@ class Parser:
             if "/" == files[i][0]:
                 item["file"] = self.__trim(files[i])
             else:
-                item["file"] = item.get("directory") + "/" + self.__trim(files[i])
+                item["file"] = directory + "/" + self.__trim(files[i])
+            self.__normpath(item["file"])
             res.append(item)
         self.__reset()
         return res
@@ -167,20 +201,40 @@ class Parser:
     def __directory(self, line: str) -> str:
         """从字符串中解析处目录项"""
         lines = line.split()
-
-        res_list = [s for s in lines if "'/" in s or '"/' in s]
+        res: str = ""
+        res_list = [s for s in lines if "'/" in s or '"/' in s or s.startswith("/")]
         if len(res_list) == 1:
-            res = res_list.pop()[1:-1]
+            raw_res = res_list.pop()
+            res = raw_res if raw_res.startswith("/") else raw_res[1:-1]
         else:
             raise ParseException("only one directory string is expected.")
-        return res
+        return self.__normpath(res)
+
+    def __normpath(self, filepath: str) -> str:
+        return path.normpath(filepath)
+
+    def __relpath(self, filepath: str) -> str:
+        """filepath 为全路径，获取基于 self._build_dir 的相对路径"""
+        if self._build_dir != "":
+            return path.relpath(filepath, self._build_dir)
+        raise ParseException(f"can not parse relative path for {self._build_dir}")
+
+    def __abspath(self, filepath: str) -> str:
+        """假定 filepath 为相对于 self._dir 的相对路径，则基于此构造filepath的绝对路径."""
+        if filepath.startswith("/") is True:
+            return filepath
+        elif self._dir != "":
+            return self.__normpath(self._dir + "/" + filepath)
+        raise ParseException(
+            f"can not parse absolute path for {filepath} based on {self._dir}"
+        )
 
 
 if __name__ == "__main__":
     import orjson
     from src.reader import FileReader
 
-    _reader = FileReader("read.txt")
+    _reader = FileReader("reads.txt")
     _parser = Parser(reader=_reader, build_dir="~/coder")
 
     for pi in _parser:
