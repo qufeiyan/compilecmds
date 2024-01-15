@@ -8,42 +8,44 @@ class Writer:
     """定义 Writer 根据parser 得到的数据 生成compile_commands.json"""
 
     def __init__(self, directory: str = None):
-        self.buffer = []
-        self.dir = directory
+        self.__buffer: list = []
+        self.__dir: str = directory
+        self.__start: bool = False #写开始标志
+        self.__file: str = ""
 
         default: str = "compile_commands.json"
-        if self.dir is not None and path.isdir(self.dir):
-            self.file: str = (
-                (self.dir[:-1] if "/" in self.dir else self.dir) + "/" + default
+        if self.__dir is not None and path.isdir(self.__dir):
+            self.__file: str = (
+                (self.__dir[:-1] if "/" in self.__dir else self.__dir) + "/" + default
             )
         else:
-            self.file: str = default
+            self.__file: str = default
 
-        if path.isfile(self.file):
-            remove(self.file)
+        if path.isfile(self.__file):
+            remove(self.__file)
 
     def write(self, item: list):
-        """获取一次有效数据, 将之写入buffer 或者文件"""
-        if len(self.buffer) >= 10:
-            with open(self.file, "a+", encoding="utf-8") as f:
+        """获取一次有效数据, 将之写入__buffer 或者文件"""
+        if len(self.__buffer) >= 1:
+            with open(self.__file, "a+", encoding="utf-8") as f:
+                f.write("[\n" if False is self.__start else ",\n")
                 f.write(
-                    orjson.dumps(self.buffer, option=orjson.OPT_INDENT_2).decode(
+                    orjson.dumps(self.__buffer, option=orjson.OPT_INDENT_2).decode(
                         "utf-8"
-                    )
+                    )[2:-2]
                 )
-                self.buffer.clear()
-        self.buffer.extend(item)
+                self.__start = True
+                self.__buffer.clear()
+        self.__buffer.extend(item)
 
     def flush(self):
-        """写入buffer 到文件"""
-        if len(self.buffer) == 0:
-            return
-
-        with open(self.file, "a+", encoding="utf-8") as f:
+        """写入 buffer 到文件"""
+        with open(self.__file, "a+", encoding="utf-8") as f:
+            f.write("[\n" if False is self.__start else ",\n")
             f.write(
-                orjson.dumps(self.buffer, option=orjson.OPT_INDENT_2).decode("utf-8")
+                orjson.dumps(self.__buffer, option=orjson.OPT_INDENT_2).decode("utf-8")[2:] or "\n]"
             )
-            self.buffer.clear()
+            self.__buffer.clear()
             f.flush()
 
 

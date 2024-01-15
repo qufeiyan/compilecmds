@@ -69,7 +69,9 @@ class Parser:
         if len(line) == 0:
             return res
 
-        raw_lines = line.split()
+        raw_lines: list = line.split()
+        if self.__valid(raw_lines) is False:
+            return []
 
         # 搜索编译工具链及编译文件, 以及处理文件路径
         index: int = 0
@@ -162,10 +164,9 @@ class Parser:
 
             item.update({"directory": directory})
             if "/" == files[i][0]:
-                item["file"] = self.__trim(files[i])
+                item["file"] = self.__normpath(self.__trim(files[i]))
             else:
-                item["file"] = directory + "/" + self.__trim(files[i])
-            self.__normpath(item["file"])
+                item["file"] = self.__normpath(directory + "/" + self.__trim(files[i]))
             res.append(item)
         self.__reset()
         return res
@@ -226,8 +227,21 @@ class Parser:
         elif self._dir != "":
             return self.__normpath(self._dir + "/" + filepath)
         raise ParseException(
-            f"can not parse absolute path for {filepath} based on {self._dir}"
+            f"can not parse absolute path for {filepath} based on {self._dir or None}"
         )
+
+    def __valid(self, raws: str) -> bool:
+        valid: bool = False
+        for s in raws:
+            if (
+                s.endswith("gcc")
+                or s.endswith("g++")
+                or s.endswith("clang")
+                or s.endswith("clang++")
+            ):
+                valid = True
+                break
+        return valid
 
 
 if __name__ == "__main__":
