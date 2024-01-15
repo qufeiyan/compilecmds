@@ -1,4 +1,10 @@
 # compilecmds
+
+![license](https://img.shields.io/badge/license-MIT-orange)
+![release](https://img.shields.io/badge/release-v0.3.5-blue)
+![prs](https://img.shields.io/badge/PRs-welcome-brightgreen)
+![poweredby](https://img.shields.io/badge/powered%20by-qufeiyan-red)
+
 > 实现一个命令行工具，功能类似 `compiledb`, 以生成 compile_commands.json。
 
 功能上是 `compiledb` 的补充，由于笔者使用 `compiledb` 发现有些不尽如人意的地方
