@@ -3,7 +3,7 @@
 __title__ = "ccjson"
 __description__ = "generate a compilation database for make-based build systems."
 __url__ = "https://github.com/qufeiyan/compilecmds/"
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 __author__ = "qufeiyan"
 __author_email__ = "2491411913@qq.com"
 __license__ = "MIT"

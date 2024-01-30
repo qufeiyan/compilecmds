@@ -40,7 +40,7 @@ class FileReader(Reader):
         if self._eof is True:
             return ""
 
-        with open_file(self._filepath, "r", encoding="utf-8") as f:
+        with open_file(self._filepath, "r", encoding="utf-8", errors="ignore") as f:
             f.seek(self._position)
             for _ in range(10):
                 content: str = f.readline(size)
@@ -77,7 +77,7 @@ class StdinReader(Reader):
         if self._eof is True:
             return ""
 
-        with open_file("-", "r", encoding="utf-8") as f:
+        with open_file("-", "r", encoding="utf-8", errors="ignore") as f:
             for _ in range(10):
                 content: str = f.readline(size)
                 if len(content) == 0:
