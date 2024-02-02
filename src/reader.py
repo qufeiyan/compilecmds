@@ -2,8 +2,11 @@
 导入abc, 以定义抽象接口Reader
 """
 from abc import abstractmethod, ABCMeta
+from multiprocessing import Queue, Process, Value
+import sys
+import os
+import queue
 from click import open_file
-
 
 class Reader(metaclass=ABCMeta):
     """
@@ -55,7 +58,7 @@ class FileReader(Reader):
         return line
 
     def readable(self) -> bool:
-        '''判断是否已无数据,注意必须是文件读完且缓存为空,才为True'''
+        """判断是否已无数据,注意必须是文件读完且缓存为空,才为True"""
         return self._eof is False or len(self._buffer) != 0
 
 
@@ -63,35 +66,44 @@ class StdinReader(Reader):
     """从标准输入获取Reader"""
 
     def __init__(self):
-        self._buffer = []
-        self._eof = False
+        self._raw_eof = Value("b", 0)
+        self._queue = Queue()
+        self._fd: int = sys.stdin.fileno()
+        self._process = Process(target=self._fill_buffer, args=(self._fd, self._queue))
+        self._process.start()
 
     def readline(self, size: int = 4096) -> str:
         line: str = ""
-        if len(self._buffer) > 0:
-            # 从头读取一行
-            line = self._buffer.pop(0)
-            assert len(line) <= size
-            return line
-
-        if self._eof is True:
-            return ""
-
-        with open_file("-", "r", encoding="utf-8", errors="ignore") as f:
-            for _ in range(10):
-                content: str = f.readline(size)
-                if len(content) == 0:
-                    self._eof = True
-                    break
-                if not line:
-                    line = content
-                else:
-                    self._buffer.append(content)
+        try:
+            line = self._queue.get(timeout=1)
+        except (queue.Empty, ValueError) as error:
+            if not self.readable:
+                raise error
         return line
 
     def readable(self) -> bool:
-        '''判断是否已无数据,注意必须是文件读完且缓存为空,才为True'''
-        return self._eof is False or len(self._buffer) != 0
+        """判断是否已无数据,注意必须是文件读完且缓存为空,才为True"""
+        return self._eof is False or not self._queue.empty()
+
+    @property
+    def _eof(self) -> bool:
+        """self._process 还在运行，exitcode 为 None；exitcode为 int 类型的退出码，表示退出"""
+        return self._process.exitcode is not None
+
+    @staticmethod
+    def _fill_buffer(fd: int, buffer: Queue):
+        sys.stdin = os.fdopen(os.dup(fd), mode="r", encoding="utf-8", errors="ignore")
+        for line in sys.stdin:
+            if not line:  # 要么阻塞读数据，要么返回空数据，表示eof
+                break
+            buffer.put(line)
+        sys.stdin.close()
+
+    def __del__(self):
+        if not sys.stdin.closed:
+            sys.stdin.close()
+        assert self._process.exitcode == 0
+        self._process.close()
 
 
 if __name__ == "__main__":
